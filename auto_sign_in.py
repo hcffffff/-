@@ -8,7 +8,7 @@ import pytesseract
 import re
 import sys
 
-pytesseract.pytesseract.tesseract_cmd = r'/usr/local/Cellar/tesseract/4.1.1/bin/tesseract'
+# pytesseract.pytesseract.tesseract_cmd = r'/usr/local/Cellar/tesseract/4.1.1/bin/tesseract'
 page_shot = './page_shot.png'
 
 city1 = '' # 城市选择中左边的项目,在引号内修改
@@ -16,12 +16,12 @@ city2 = '' # 城市选择中右边的项目,在引号内修改,如果是上海,�
 username = '' # 输入登录ID,在引号内更改
 password = '' # 输入登录密码,在引号内更改
 
-def first_username_login(driver):
+def check_first_username_login(driver):
     try:
         driver.find_element_by_xpath("//div[@class='tab_option user-login']").click()
-        return True
+        return
     except:
-        return True
+        return
 
 def get_imageCode(driver):
     # 识别验证码并自动填写
@@ -55,20 +55,30 @@ def get_imageCode(driver):
 def auto_login(driver, username, password):
     try:
         while re.match(r'https://login.sufe.edu.cn/cas/login.*', driver.current_url):
-            if first_username_login(driver):
-                driver.find_element_by_id('username').send_keys(username)
-                driver.find_element_by_id('password').send_keys(password)
-                code = get_imageCode(driver)
-                # print(code)
-                driver.find_element_by_id('imageCodeName').send_keys(code)
-                time.sleep(1)
-                driver.find_element_by_id('submitButton').click()
-            # print(driver.current_url)
-            time.sleep(1)
-        if re.match(r'http://eams.sufe.edu.cn/tch/ncp.*', driver.current_url):
-            driver.send_keys(Keys.ENTER)
+            check_first_username_login(driver)
+            driver.find_element_by_id('submitButton').click()
+            driver.switch_to_alert().accept()
+            # 填写用户名及密码
+            un_form = driver.find_element_by_id('username')
+            un_form.clear()
+            un_form.send_keys(username)
+            pw_form = driver.find_element_by_id('password')
+            pw_form.clear()
+            pw_form.send_keys(password)
+
+            code = get_imageCode(driver)
+            driver.find_element_by_id('imageCodeName').send_keys(code)
+            driver.find_element_by_id('submitButton').click()
+            # 给一个试错验证码的空间
+            try:
+                driver.switch_to_alert().accept()
+            except:
+                continue
+            if re.match(r'http://eams.sufe.edu.cn/tch/ncp.*', driver.current_url):
+                # driver.send_keys(Keys.ENTER)
+                break
         return
-    except:
+    finally:
         print("出现了一点bug,拜托重新运行一下程序吧:),如果程序还在运行,请忽略")
 
 def  find_all_NULL(driver):
@@ -95,6 +105,9 @@ def main():
 
     auto_login(driver, username, password)
     time.sleep(1)
+    if re.match(r'http://eams.sufe.edu.cn/tch/ncp/finished.html', driver.current_url):
+        driver.quit()
+        return
     find_all_NULL(driver)
     fill_city(driver)
     time.sleep(3)
